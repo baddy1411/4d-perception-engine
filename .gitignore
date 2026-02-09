@@ -1,0 +1,11 @@
+data/opv2v/
+data/opv2v/OPV2V_Hetero/
+data/opv2v/*.zip
+__pycache__/
+*.json
+*.png
+calibration_log.txt
+*.suo
+.vs/
+artifacts/
+.gemini/
