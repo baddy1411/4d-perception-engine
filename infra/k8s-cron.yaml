@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: perception-etl-job
+  namespace: data-engineering
+spec:
+  schedule: "0 2 * * *" # Runs at 2am daily
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: etl-worker
+            image: 4d-perception-engine:latest
+            imagePullPolicy: Always
+            command: ["/bin/sh", "-c"]
+            args:
+              - spark-submit 
+                --master k8s://https://kubernetes.default.svc 
+                --deploy-mode cluster 
+                --conf spark.executor.instances=200
+                --conf spark.kubernetes.container.image=4d-perception-engine:latest
+                local:///app/src/etl/spark_job.py 
+                --input s3://raw-sensor-data/$(date +%Y-%m-%d)
+                --output s3://processed-metadata/$(date +%Y-%m-%d)
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2"
+              limits:
+                memory: "8Gi"
+                cpu: "4"
+            env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-secrets
+                  key: access-key
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-secrets
+                  key: secret-key
+          restartPolicy: OnFailure
+          nodeSelector:
+            # Targeted to spot instances as mentioned in project description
+            lifecycle: spot
+            instance-type: c5.xlarge
